@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
@@ -30,6 +31,9 @@ var (
 
 	// name of the pod
 	podName string
+
+	// lifetime of the pod
+	lifetime string
 )
 
 const (
@@ -44,6 +48,7 @@ const (
 	backendEndpointsEnvVarName = "BACKEND_ENDPOINTS"
 	requestRateEnvVarName      = "REQUEST_RATE"
 	podNameEnvVarName		   = "POD_NAME"
+	lifetimeEnvVarName		   = "LIFETIME"
 )
 
 func bootstrap() {
@@ -103,6 +108,14 @@ func bootstrap() {
 	} else {
 		log.Printf("Pod name: %s\n", podName)
 	}
+
+	// Lifetime
+	lifetime = os.Getenv(lifetimeEnvVarName)
+	if lifetime == "" {
+		log.Printf("%s env var is not set. Lifetime is empty\n", lifetimeEnvVarName)
+	} else {
+		log.Printf("Lifetime: %s\n", lifetime)
+	}
 }
 
 func defaultServerName() string {
@@ -138,8 +151,31 @@ func sendRequests() {
 	}
 }
 
+func measureLife() {
+	if lifetime == "" {
+		return
+	}
+
+	duration, err := time.ParseDuration(lifetime)
+	if err != nil {
+		log.Printf("Lifetime value is invalid and ignored. %s.\n", lifetime)
+		return
+	}
+
+	rand.Seed(time.Now().Unix())
+	randNum := rand.Intn(30)
+	totalTime := time.Duration(int(duration.Seconds()) + randNum) * time.Second
+	log.Printf("Pod will live for a total of %v seconds.\n", totalTime.Seconds())
+
+	time.Sleep(totalTime)
+	log.Printf("Pod time is up. Total time is %v seconds. Killing pod.\n", totalTime.Seconds())
+	os.Exit(0)
+}
+
 func main() {
 	bootstrap()
+
+	go measureLife()
 
 	go sendRequests()
 

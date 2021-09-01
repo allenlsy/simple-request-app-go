@@ -11,7 +11,7 @@ The configuration of the application is based on environment variables:
 * `SERVICE_NAME`: name of the service that application belongs to. It will also be the response message to all incoming requests
 * `BACKEND_ENDPOINTS`: a comma-separated list of endpoints. E.g. `"google.com,youtube.com"`
 * `REQUEST_RATE`: number of outgoing requests per second. It can be set to integer or float
-
+* `LIFETIME`: time that pod will be alive. If not provided, the pod will live forever. Time format are like `"15m"`, `"60s"`. A less than 30 seconds random duration will be added to lifetime.
 
 ### Run the application
 
