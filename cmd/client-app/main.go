@@ -20,26 +20,30 @@ var (
 	backendPort int
 
 	// server name from SERVER_NAME env var
-	serverName string
+	serviceName string
 
 	// backend endpoint names that client will send requests to
 	backendEndpoints []string
 
 	// rate that client sends requests to backend endpoints
 	requestRate float64
+
+	// name of the pod
+	podName string
 )
 
 const (
 	defaultListenPort       = 8080
 	defaultBackendPort      = 80
-	defaultServerNameStatic = "Unknown server"
+	defaultServiceNameStatic = "Unknown server"
 	defaultRequestRate      = 1
 
 	listenPortEnvVarName       = "LISTEN_PORT"
 	backendPortEnvVarName      = "BACKEND_PORT"
-	serverNameEnvVarName       = "SERVER_NAME"
+	serviceNameEnvVarName      = "SERVICE_NAME"
 	backendEndpointsEnvVarName = "BACKEND_ENDPOINTS"
 	requestRateEnvVarName      = "REQUEST_RATE"
+	podNameEnvVarName		   = "POD_NAME"
 )
 
 func bootstrap() {
@@ -64,19 +68,22 @@ func bootstrap() {
 	}
 
 	// Server name
-	serverName = os.Getenv(serverNameEnvVarName)
-	if serverName == "" {
-		log.Printf("%s env var is not set. Server name is set to %s\n", serverNameEnvVarName, defaultServerName())
-		serverName = defaultServerName()
+	serviceName = os.Getenv(serviceNameEnvVarName)
+	if serviceName == "" {
+		log.Printf("%s env var is not set. Server name is set to %s\n", serviceNameEnvVarName, defaultServerName())
+		serviceName = defaultServerName()
 	} else {
-		log.Printf("Server name: %s\n", serverName)
+		log.Printf("Server name: %s\n", serviceName)
 	}
 
 	// Backend endpoints
 	backendEndpointsStr := os.Getenv(backendEndpointsEnvVarName)
-	backendEndpoints = strings.Split(backendEndpointsStr, ",")
-	for idx, item := range backendEndpoints {
-		backendEndpoints[idx] = strings.Trim(item, " ")
+	backendEndpointsTokens := strings.Split(backendEndpointsStr, ",")
+	for _, token := range backendEndpointsTokens {
+		token = strings.Trim(token, " ")
+		if token != "" {
+			backendEndpoints = append(backendEndpoints, token)
+		}
 	}
 	log.Printf("Backend endpoints: %v\n", backendEndpoints)
 
@@ -88,10 +95,18 @@ func bootstrap() {
 	} else {
 		log.Printf("Request rate: %f requests per second\n", requestRate)
 	}
+
+	// Pod name
+	podName = os.Getenv(podNameEnvVarName)
+	if podName == "" {
+		log.Printf("%s env var is not set. Pod name is empty\n", podNameEnvVarName)
+	} else {
+		log.Printf("Pod name: %s\n", podName)
+	}
 }
 
 func defaultServerName() string {
-	return defaultServerNameStatic
+	return defaultServiceNameStatic
 }
 
 // sends requests at a roughly specified request rate
@@ -113,7 +128,7 @@ func sendRequests() {
 			url := fmt.Sprintf("http://%s:%d/", endpoint, backendPort)
 			resp, err := http.Get(url)
 			if err != nil {
-				log.Fatalln(err)
+				log.Println(err)
 			} else {
 				log.Printf("Sent to %s, received [%d]\n", url, resp.StatusCode)
 			}
@@ -131,10 +146,10 @@ func main() {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("[%s] %s, from %v\n", serverName, r.RequestURI, r.RemoteAddr)
-		fmt.Fprintf(w, "%s\n", serverName)
+		log.Printf("[%s] %s, from %v\n", serviceName, r.RequestURI, r.RemoteAddr)
+		fmt.Fprintf(w, "%s - %s\n", serviceName, podName)
 	})
 
-	log.Printf("[%s] server starting on port %d\n", serverName, listenPort)
+	log.Printf("[%s] server starting on port %d\n", serviceName, listenPort)
 	http.ListenAndServe(fmt.Sprintf(":%d", listenPort), r)
 }
