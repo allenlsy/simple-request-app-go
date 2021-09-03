@@ -168,7 +168,7 @@ func measureLife() {
 	log.Printf("Pod will live for a total of %v seconds.\n", totalTime.Seconds())
 
 	time.Sleep(totalTime)
-	log.Printf("Pod time is up. Total time is %v seconds. Killing pod.\n", totalTime.Seconds())
+	log.Printf("Pod time is up. Total time is %v seconds. Exit 0.\n", totalTime.Seconds())
 	os.Exit(0)
 }
 
