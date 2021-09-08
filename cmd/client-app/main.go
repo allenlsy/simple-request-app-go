@@ -162,7 +162,6 @@ func sendRequests() {
 			case <-tickerCloseConnections.C:
 				client.CloseIdleConnections()
 			}
-
 		}
 	}()
 
@@ -187,11 +186,12 @@ func sendRequests() {
 		} else {
 			log.Printf("Sent to %s, received [%d]\n", url, resp.StatusCode)
 		}
+		resp.Body.Close()
 	}
 }
 
-// measureLife sets life time for the process
-func measureLife() {
+// checkLifetime sets life time for the process
+func checkLifetime() {
 	if lifetime == "" {
 		return
 	}
@@ -214,20 +214,15 @@ func measureLife() {
 
 func scheduleGC() {
 	ticker := time.NewTicker(1 * time.Minute)
-	done := make(chan bool)
 
-	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			case <-ticker.C:
-				log.Println("GC starts")
-				runtime.GC()
-				log.Println("GC finishes")
-			}
+	for {
+		select {
+		case <-ticker.C:
+			log.Println("GC starts")
+			runtime.GC()
+			log.Println("GC finishes")
 		}
-	}()
+	}
 }
 
 func main() {
@@ -238,7 +233,7 @@ func main() {
 		return
 	}
 
-	go measureLife()
+	go checkLifetime()
 
 	go scheduleGC()
 
