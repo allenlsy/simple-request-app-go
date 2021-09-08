@@ -35,6 +35,9 @@ var (
 
 	// lifetime of the pod
 	lifetime string
+
+	// number of threads
+	numThreads int
 )
 
 const (
@@ -50,6 +53,7 @@ const (
 	requestRateEnvVarName      = "REQUEST_RATE"
 	podNameEnvVarName          = "POD_NAME"
 	lifetimeEnvVarName         = "LIFETIME"
+	numThreadsEnvVarName       = "NUM_THREADS"
 )
 
 func bootstrap() {
@@ -117,6 +121,20 @@ func bootstrap() {
 	} else {
 		log.Printf("Lifetime: %s\n", lifetime)
 	}
+
+	// num threads
+	numThreadsStr := os.Getenv(numThreadsEnvVarName)
+	if numThreadsStr == "" {
+		numThreads = int(requestRate)
+		if numThreads == 0 {
+			numThreads = 1
+		}
+
+		log.Printf("%s env var is not set. Num of threads is the same of request rate, which is %d.\n", numThreadsEnvVarName, numThreads)
+	} else {
+		numThreads, _ = strconv.Atoi(os.Getenv(backendPortEnvVarName))
+		log.Printf("NumThreads: %d\n", numThreads)
+	}
 }
 
 func defaultServerName() string {
@@ -130,6 +148,21 @@ func sendRequests() {
 	lengEndpoints := len(backendEndpoints)
 
 	var endpoint string
+
+	ticker := time.NewTicker(time.Duration(intervalMs) * time.Millisecond)
+
+	tickerCloseConnections := time.NewTicker(1 * time.Minute)
+
+	go func() {
+		for {
+			select {
+			case <-tickerCloseConnections.C:
+				client.CloseIdleConnections()
+			}
+
+		}
+	}()
+
 	for i := 0; ; i++ {
 		if i == lengEndpoints {
 			i = 0
@@ -138,17 +171,16 @@ func sendRequests() {
 		// randomize endpoints
 		endpoint = backendEndpoints[i]
 
-		go func() {
-			url := fmt.Sprintf("http://%s:%d/", endpoint, backendPort)
-			resp, err := http.Get(url)
-			if err != nil {
-				log.Println(err)
-			} else {
-				log.Printf("Sent to %s, received [%d]\n", url, resp.StatusCode)
-			}
-		}()
+		url := fmt.Sprintf("http://%s:%d/", endpoint, backendPort)
 
-		time.Sleep(time.Duration(intervalMs) * time.Millisecond)
+		<-ticker.C
+
+		resp, err := http.Get(url)
+		if err != nil {
+			log.Println(err)
+		} else {
+			log.Printf("Sent to %s, received [%d]\n", url, resp.StatusCode)
+		}
 	}
 }
 
