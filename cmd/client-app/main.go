@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -37,18 +38,18 @@ var (
 )
 
 const (
-	defaultListenPort       = 8080
-	defaultBackendPort      = 80
+	defaultListenPort        = 8080
+	defaultBackendPort       = 80
 	defaultServiceNameStatic = "Unknown server"
-	defaultRequestRate      = 1
+	defaultRequestRate       = 1
 
 	listenPortEnvVarName       = "LISTEN_PORT"
 	backendPortEnvVarName      = "BACKEND_PORT"
 	serviceNameEnvVarName      = "SERVICE_NAME"
 	backendEndpointsEnvVarName = "BACKEND_ENDPOINTS"
 	requestRateEnvVarName      = "REQUEST_RATE"
-	podNameEnvVarName		   = "POD_NAME"
-	lifetimeEnvVarName		   = "LIFETIME"
+	podNameEnvVarName          = "POD_NAME"
+	lifetimeEnvVarName         = "LIFETIME"
 )
 
 func bootstrap() {
@@ -164,7 +165,7 @@ func measureLife() {
 
 	rand.Seed(time.Now().Unix())
 	randNum := rand.Intn(30)
-	totalTime := time.Duration(int(duration.Seconds()) + randNum) * time.Second
+	totalTime := time.Duration(int(duration.Seconds())+randNum) * time.Second
 	log.Printf("Pod will live for a total of %v seconds.\n", totalTime.Seconds())
 
 	time.Sleep(totalTime)
@@ -172,10 +173,35 @@ func measureLife() {
 	os.Exit(0)
 }
 
+func scheduleGC() {
+	ticker := time.NewTicker(1 * time.Minute)
+	done := make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				log.Println("GC starts")
+				runtime.GC()
+				log.Println("GC finishes")
+			}
+		}
+	}()
+}
+
 func main() {
 	bootstrap()
 
+	if len(backendEndpoints) == 0 {
+		log.Printf("No backend endpoint set. Quit.")
+		return
+	}
+
 	go measureLife()
+
+	go scheduleGC()
 
 	go sendRequests()
 
