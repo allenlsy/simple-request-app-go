@@ -46,6 +46,8 @@ const (
 	defaultServiceNameStatic = "Unknown server"
 	defaultRequestRate       = 1
 
+	clientHostHeaderName = "x-client-host"
+
 	listenPortEnvVarName       = "LISTEN_PORT"
 	backendPortEnvVarName      = "BACKEND_PORT"
 	serviceNameEnvVarName      = "SERVICE_NAME"
@@ -150,6 +152,7 @@ func sendRequests() {
 	var endpoint string
 
 	ticker := time.NewTicker(time.Duration(intervalMs) * time.Millisecond)
+	client := &http.Client{}
 
 	tickerCloseConnections := time.NewTicker(1 * time.Minute)
 
@@ -173,9 +176,12 @@ func sendRequests() {
 
 		url := fmt.Sprintf("http://%s:%d/", endpoint, backendPort)
 
-		<-ticker.C
+		req, _ := http.NewRequest("GET", url, nil)
+		req.Header.Set(clientHostHeaderName, podName)
 
-		resp, err := http.Get(url)
+		<-ticker.C
+		resp, err := client.Do(req)
+
 		if err != nil {
 			log.Println(err)
 		} else {
@@ -184,6 +190,7 @@ func sendRequests() {
 	}
 }
 
+// measureLife sets life time for the process
 func measureLife() {
 	if lifetime == "" {
 		return
@@ -240,7 +247,8 @@ func main() {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("[%s] %s, from %v\n", serviceName, r.RequestURI, r.RemoteAddr)
+		clientName := r.Header.Get(clientHostHeaderName)
+		log.Printf("[%s] %s, from %v\n", clientName, r.RequestURI, r.RemoteAddr)
 		fmt.Fprintf(w, "%s - %s\n", serviceName, podName)
 	})
 
